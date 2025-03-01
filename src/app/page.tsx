@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useAtom } from "jotai";
 import { usernameAtom } from "@/lib/username_atom";
+import Image from "next/image";
 
 export default function Home() {
   const router = useRouter();
@@ -26,7 +27,39 @@ export default function Home() {
       className="min-h-screen w-full relative flex items-center justify-center text-white"
     >
       <div className="z-10 text-center flex flex-col gap-4">
-        <p className="text-7xl">Headout</p>
+        <div className="relative group">
+          <p className="text-7xl font-bold relative font-[var(--font-silkscreen)]">Headout</p>
+          <Image
+            src="/blimp.png"
+            alt="Blimp"
+            width={96}
+            height={96}
+            className="absolute w-24 h-24 transition-all duration-300 cursor-pointer hover:scale-110 z-50"
+            style={{
+              top: '-3rem',
+              right: '-3rem',
+              transform: 'translate(0, 0)',
+              filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.5))',
+              position: 'absolute'
+            }}
+            onMouseMove={(e) => {
+              const img = e.currentTarget;
+              const rect = img.getBoundingClientRect();
+              const mouseX = e.clientX - rect.left;
+              const mouseY = e.clientY - rect.top;
+              const speed = 0.1;
+              
+              requestAnimationFrame(() => {
+                img.style.transform = `translate(${mouseX * speed}px, ${mouseY * speed}px)`;
+              });
+            }}
+            onClick={(e) => {
+              const img = e.currentTarget;
+              document.body.style.cursor = `url(${img.src}), auto`;
+              document.body.classList.add('custom-cursor');
+            }}
+          />
+        </div>
         <div className="flex flex-col gap-4 items-center">
           <input
             type="text"

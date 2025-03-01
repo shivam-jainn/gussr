@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { decryptCity } from '@/lib/utils';
@@ -39,6 +40,7 @@ import { gameSessionAtom } from '@/lib/game_session_atom';
 import ShareButton from './ShareButton';
 import { nanoid } from 'nanoid';
 import { usernameAtom } from '@/lib/username_atom';
+import UsernamePrompt from './UsernamePrompt';
 
 interface CityImage {
   id: number;
@@ -75,7 +77,7 @@ interface CityInfo {
   fun_facts: FunFact[];
   airbnb_listing: AirbnbListing[];
   wiki_history: WikiHistory[];
-  headout_links: any[];
+  headout_links: { id: number; city_id: number; url: string }[];
 }
 
 // Sortable Image component
@@ -101,14 +103,15 @@ const SortableImage = ({ id, url }: { id: string, url: string }) => {
       {...listeners}
       className="relative group cursor-move hover:scale-105 transition-transform"
     >
-      <motion.img
-        src={url}
-        alt="City view"
-        className="w-full h-48 object-cover rounded-lg shadow-md border border-white"
-        whileHover={{ y: -5 }}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-      />
+      <motion.div>
+        <Image
+          src={url}
+          alt="City view"
+          width={400}
+          height={192}
+          className="w-full h-48 object-cover rounded-lg shadow-md border border-white"
+        />
+      </motion.div>
     </div>
   );
 };
@@ -123,15 +126,32 @@ export default function Game() {
   const [cityInfo, setCityInfo] = useState<CityInfo | null>(null);
   const [selectedCity, setSelectedCity] = useState<string>("");
   const [imageIds, setImageIds] = useState<string[]>([]);
-  const [correctCityId, setCorrectCityId] = useState<number | null>(null);
-  const [selectedOptionId, setSelectedOptionId] = useState<number | null>(null);
+  const [, setCorrectCityId] = useState<number | null>(null);
+  const [, setSelectedOptionId] = useState<number | null>(null);
   const [score, setScore] = useAtom(scoreAtom);
   const [highScore, setHighScore] = useAtom(highScoreAtom);
   const [showLaughingCat, setShowLaughingCat] = useState(false);
+  const [showUsernamePrompt, setShowUsernamePrompt] = useState(true);
 
   const [gameSession, setGameSession] = useAtom(gameSessionAtom);
-  const [questionCount, setQuestionCount] = useState(0);
   const [username] = useAtom(usernameAtom);
+  
+  // Get challenge parameters from URL
+  const [challengerName, setChallengerName] = useState<string | null>(null);
+  const [targetScore, setTargetScore] = useState<number | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlUsername = params.get('username');
+    const urlScore = params.get('score');
+
+    if (urlUsername && urlScore) {
+      setChallengerName(urlUsername);
+      setTargetScore(parseInt(urlScore));
+    } else {
+      setShowUsernamePrompt(false);
+    }
+  }, []);
   
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -153,13 +173,12 @@ export default function Game() {
         if (!res.ok) throw new Error('Failed to fetch question');
         const data = await res.json();
         setResponse(data);
-        setQuestionCount(prev => prev + 1);
       } catch (error) {
         console.error('Error:', error);
       }
     }
     fetchData();
-  }, [gameSession]);
+  }, [gameSession, setGameSession]);
 
   useEffect(() => {
     if (cityInfo?.images) {
@@ -177,7 +196,6 @@ export default function Game() {
 
   const handleAnswer = async (optionId: number, cityName: string) => {
     try {
-      // Remove question limit check
       const decryptedCityId = decryptCity(response.encryptedCity);
       setSelectedOptionId(optionId);
       
@@ -203,6 +221,25 @@ export default function Game() {
         if (newScore > highScore) {
           setHighScore(newScore);
           localStorage.setItem('gussr_high_score', newScore.toString());
+
+          // Check if player unlocked voucher segment
+          if (newScore >= 1500) {
+            const params = new URLSearchParams(window.location.search);
+            const existingVoucher = params.get('v');
+            if (existingVoucher) {
+              const segments = existingVoucher.split('-');
+              if (segments.length === 3) {
+                // Show complete voucher celebration
+                alert(`🎉 Congratulations! You've helped unlock the voucher: ${existingVoucher}\nShare this with your friends to claim your reward!`);
+              } else {
+                // Show progress celebration
+                alert(`🎫 You've unlocked a voucher segment! Share with friends to complete the voucher.`);
+              }
+            } else {
+              // First segment unlocked
+              alert(`🎫 You've unlocked your first voucher segment! Share with friends to complete the voucher.`);
+            }
+          }
         }
         
         triggerConfetti();
@@ -265,12 +302,17 @@ export default function Game() {
   return (
     
     <div className="flex flex-col items-center gap-6 p-4 max-w-7xl mx-auto">
+    {showUsernamePrompt ? (
+      <UsernamePrompt
+        challengerName={challengerName || undefined}
+        targetScore={targetScore || undefined}
+        onSubmit={() => setShowUsernamePrompt(false)}
+      />
+    ) : null}
     <div className="w-full flex justify-between items-center">
       <ScoreTracker />
       {gameSession && (
         <ShareButton 
-          encryptedCity={response.encryptedCity}
-          questionCount={questionCount}
           score={score}
         />
       )}
@@ -319,9 +361,11 @@ export default function Game() {
                   {option.name}
                 </Button>
                 <div className="absolute opacity-0 group-hover:opacity-100 transition-opacity duration-200 -top-32 left-1/2 -translate-x-1/2 z-10">
-                  <img 
+                  <Image 
                     src={option.image_url} 
                     alt={option.name}
+                    width={192}
+                    height={128}
                     className="w-48 h-32 object-cover rounded-lg shadow-lg border border-white"
                   />
                 </div>
@@ -487,7 +531,6 @@ export default function Game() {
                       if (!res.ok) throw new Error('Failed to fetch question');
                       const data = await res.json();
                       setResponse(data);
-                      setQuestionCount(prev => prev + 1);
                     } catch (error) {
                       console.error('Error:', error);
                     }
@@ -505,7 +548,6 @@ export default function Game() {
                   setSelectedOptionId(null);
                   setCorrectCityId(null);
                   setScore(0);
-                  setQuestionCount(0);
                   // Refresh the game
                   const fetchData = async () => {
                     try {
@@ -513,7 +555,6 @@ export default function Game() {
                       if (!res.ok) throw new Error('Failed to fetch question');
                       const data = await res.json();
                       setResponse(data);
-                      setQuestionCount(prev => prev + 1);
                     } catch (error) {
                       console.error('Error:', error);
                     }

@@ -60,7 +60,7 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
       clickSound.oncanplaythrough = null;
       clickSound.onerror = null;
     };
-  }, []);
+  }, [isLoading]);
 
   const toggleMute = () => {
     const newMuteState = !isMuted;

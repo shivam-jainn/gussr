@@ -2,7 +2,7 @@ import { getCityInfo, getQuestion } from "@/lib/database/queries";
 import { NextRequest, NextResponse } from "next/server";
 import { encryptCity } from "@/lib/utils";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
     try {
         const result = await getQuestion();
 

@@ -13,7 +13,7 @@ const pool = new pg.Pool({
 });
 
 // Query helper function
-export async function query(text: string, params?: any[]) {
+export async function query(text: string, params?: (string | number | boolean | Date | null)[]) {
   const client = await pool.connect();
   try {
     return await client.query(text, params);
