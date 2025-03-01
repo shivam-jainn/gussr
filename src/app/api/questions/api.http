@@ -1,0 +1,31 @@
+### Get Question
+GET http://localhost:3000/api/questions
+userId: test-user-123
+
+### Get Question (Error Case - No userId)
+GET http://localhost:3000/api/questions
+
+### Get City Info
+POST http://localhost:3000/api/questions
+Content-Type: application/json
+userId: test-user-123
+
+{
+    "cityId": 1
+}
+
+### Get City Info (Error Case - No userId)
+POST http://localhost:3000/api/questions
+Content-Type: application/json
+
+{
+    "cityId": 1
+}
+
+### Get City Info (Error Case - No cityId)
+POST http://localhost:3000/api/questions
+Content-Type: application/json
+userId: test-user-123
+
+{
+}
