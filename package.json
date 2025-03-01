@@ -2,6 +2,7 @@
   "name": "gussr",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
@@ -12,9 +13,11 @@
     "@radix-ui/react-slot": "^1.1.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dotenv": "^16.4.7",
     "lucide-react": "^0.477.0",
     "next": "15.2.0",
     "next-themes": "^0.4.4",
+    "pg": "^8.13.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "sonner": "^2.0.1",
@@ -24,11 +27,18 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/jest": "^29.5.14",
     "@types/node": "^20",
+    "@types/pg": "^8.11.11",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/supertest": "^6.0.2",
     "eslint": "^9",
     "eslint-config-next": "15.2.0",
+    "jest": "^29.7.0",
+    "jest-environment-node": "^29.7.0",
+    "node-mocks-http": "^1.16.2",
+    "supertest": "^7.0.0",
     "tailwindcss": "^4",
     "typescript": "5.7.2"
   }
