@@ -6,6 +6,7 @@ import { decryptCity } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
+import { saveGameState } from '@/lib/game_storage';
 import {
   DndContext,
   closestCenter,
@@ -32,8 +33,12 @@ import LaughingCat from './LaughingCat';
 // import { BiConfetti } from 'react-icons/bi';
 
 import { useAtom } from 'jotai';
-import { scoreAtom } from '@/lib/scoreatom';
+import { scoreAtom,highScoreAtom } from '@/lib/scoreatom';
 import ScoreTracker from './ScoreTracker';
+import { gameSessionAtom } from '@/lib/game_session_atom';
+import ShareButton from './ShareButton';
+import { nanoid } from 'nanoid';
+import { usernameAtom } from '@/lib/username_atom';
 
 interface CityImage {
   id: number;
@@ -121,8 +126,13 @@ export default function Game() {
   const [correctCityId, setCorrectCityId] = useState<number | null>(null);
   const [selectedOptionId, setSelectedOptionId] = useState<number | null>(null);
   const [score, setScore] = useAtom(scoreAtom);
+  const [highScore, setHighScore] = useAtom(highScoreAtom);
   const [showLaughingCat, setShowLaughingCat] = useState(false);
 
+  const [gameSession, setGameSession] = useAtom(gameSessionAtom);
+  const [questionCount, setQuestionCount] = useState(0);
+  const [username] = useAtom(usernameAtom);
+  
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -133,16 +143,23 @@ export default function Game() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+
+        if (!gameSession) {
+            const newSession = nanoid(10);
+            setGameSession(newSession);
+        }
+    
         const res = await fetch('/api/questions');
         if (!res.ok) throw new Error('Failed to fetch question');
         const data = await res.json();
         setResponse(data);
+        setQuestionCount(prev => prev + 1);
       } catch (error) {
         console.error('Error:', error);
       }
     }
     fetchData();
-  }, []);
+  }, [gameSession]);
 
   useEffect(() => {
     if (cityInfo?.images) {
@@ -152,14 +169,15 @@ export default function Game() {
 
   const triggerConfetti = () => {
     confetti({
-      particleCount: 100,
+      particleCount: 200,
       spread: 70,
-      origin: { y: 0.6 }
+      origin: { y: 0.1 }
     });
   };
 
   const handleAnswer = async (optionId: number, cityName: string) => {
     try {
+      // Remove question limit check
       const decryptedCityId = decryptCity(response.encryptedCity);
       setSelectedOptionId(optionId);
       
@@ -171,10 +189,30 @@ export default function Game() {
       setCorrectCityId(decryptedCityId);
       
       if (decryptedCityId === optionId) {
+        // Correct answer - Balanced scoring with caps
         setResult('correct');
         setSelectedCity(cityName);
-        setScore(prev => prev + 1);
+        const basePoints = 100;
+        const maxMultiplier = 3; // Cap the multiplier at 3x
+        const multiplier = Math.min(1 + (score * 0.1), maxMultiplier); // Gentle progression
+        const pointsEarned = Math.min(Math.round(basePoints * multiplier), 500); // Cap at 500 points
+        const newScore = score + pointsEarned;
+        setScore(newScore);
+        
+        // Update high score if current score is higher
+        if (newScore > highScore) {
+          setHighScore(newScore);
+          localStorage.setItem('gussr_high_score', newScore.toString());
+        }
+        
         triggerConfetti();
+        
+        // Save game state to localStorage
+        if (username) {
+          saveGameState(response.encryptedCity, response, username, newScore);
+        }
+  
+        // Fetch city info
         const res = await fetch('/api/questions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -183,11 +221,12 @@ export default function Game() {
         const data = await res.json();
         setCityInfo(data);
       } else {
-        console.log("Incorrect answer. Correct city ID:", decryptedCityId, "Selected city ID:", optionId);
+        // Wrong answer
         setResult('wrong');
         setShowLaughingCat(true);
         setTimeout(() => setShowLaughingCat(false), 4000);
-        // Still need to fetch the correct city info for display
+  
+        // Fetch correct city info
         const res = await fetch('/api/questions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -196,7 +235,7 @@ export default function Game() {
         const data = await res.json();
         setCityInfo(data);
         
-        // Set the name of the correct city
+        // Set correct city name
         const correctCity = response.options.find(option => option.id === decryptedCityId);
         if (correctCity) {
           setSelectedCity(correctCity.name);
@@ -224,7 +263,18 @@ export default function Game() {
   };
 
   return (
+    
     <div className="flex flex-col items-center gap-6 p-4 max-w-7xl mx-auto">
+    <div className="w-full flex justify-between items-center">
+      <ScoreTracker />
+      {gameSession && (
+        <ShareButton 
+          encryptedCity={response.encryptedCity}
+          questionCount={questionCount}
+          score={score}
+        />
+      )}
+    </div>
       <AnimatePresence>
         {!result && (
 
@@ -423,29 +473,58 @@ export default function Game() {
               </div>
             </div>
             
-            <Button 
-              onClick={() => {
-                setResult(null);
-                setCityInfo(null);
-                setSelectedOptionId(null);
-                setCorrectCityId(null);
-                // Refresh the game
-                const fetchData = async () => {
-                  try {
-                    const res = await fetch('/api/questions');
-                    if (!res.ok) throw new Error('Failed to fetch question');
-                    const data = await res.json();
-                    setResponse(data);
-                  } catch (error) {
-                    console.error('Error:', error);
+            <div className="flex gap-4 mt-4">
+              <Button 
+                onClick={() => {
+                  setResult(null);
+                  setCityInfo(null);
+                  setSelectedOptionId(null);
+                  setCorrectCityId(null);
+                  // Fetch next question
+                  const fetchData = async () => {
+                    try {
+                      const res = await fetch('/api/questions');
+                      if (!res.ok) throw new Error('Failed to fetch question');
+                      const data = await res.json();
+                      setResponse(data);
+                      setQuestionCount(prev => prev + 1);
+                    } catch (error) {
+                      console.error('Error:', error);
+                    }
                   }
-                }
-                fetchData();
-              }}
-              className="mt-4 bg-blue-500 hover:bg-blue-600 text-white"
-            >
-              Play Again
-            </Button>
+                  fetchData();
+                }}
+                className="bg-blue-500 hover:bg-blue-600 text-white"
+              >
+                Next Question
+              </Button>
+              <Button 
+                onClick={() => {
+                  setResult(null);
+                  setCityInfo(null);
+                  setSelectedOptionId(null);
+                  setCorrectCityId(null);
+                  setScore(0);
+                  setQuestionCount(0);
+                  // Refresh the game
+                  const fetchData = async () => {
+                    try {
+                      const res = await fetch('/api/questions');
+                      if (!res.ok) throw new Error('Failed to fetch question');
+                      const data = await res.json();
+                      setResponse(data);
+                      setQuestionCount(prev => prev + 1);
+                    } catch (error) {
+                      console.error('Error:', error);
+                    }
+                  }
+                  fetchData();
+                }}
+                className="bg-gray-500 hover:bg-gray-600 text-white"
+              >
+                Play Again
+              </Button>
+            </div>
           </motion.div>
         )}
       </Card>
