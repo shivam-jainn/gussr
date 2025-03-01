@@ -11,6 +11,9 @@ export async function getQuestion() {
     // Get random city
     const cityResult = await query('SELECT * FROM cities WHERE id = $1', [cityId]);
 
+    const imageResult = await query('SELECT * FROM images WHERE city_id = $1', [cityId]);
+
+    // If no city found, return null
     if (cityResult.rows.length === 0) {
         return null;
     }
@@ -18,20 +21,34 @@ export async function getQuestion() {
     const city = cityResult.rows[0];
     const cluesResult = await query('SELECT * FROM clues WHERE city_id = $1', [city.id]);
 
-    // Get 3 random cities different from the selected city
     const randomCitiesResult = await query(
-        'SELECT * FROM cities WHERE id != $1 ORDER BY RANDOM() LIMIT 3',
+        'SELECT DISTINCT ON (c.id) c.*, i.url as image_url FROM cities c ' +
+        'LEFT JOIN images i ON i.city_id = c.id ' +
+        'WHERE c.id != $1 ' +
+        'ORDER BY c.id, RANDOM() ' +
+        'LIMIT 3',
         [city.id]
     );
     const randomCities = randomCitiesResult.rows;
 
-    const options = [city, ...randomCities];
+    // Get the selected city with its image
+    const cityWithImageResult = await query(
+        'SELECT c.*, i.url as image_url FROM cities c ' +
+        'LEFT JOIN images i ON i.city_id = c.id ' +
+        'WHERE c.id = $1 ' +
+        'LIMIT 1',
+        [city.id]
+    );
+
+    const options = [cityWithImageResult.rows[0], ...randomCities];
     return {
         city,
         clues: cluesResult.rows,
-        options
+        options,
+        image: imageResult.rows[0]
     }
 }
+
 export async function getCityInfo(cityId: number) {
     const [images, fun_facts, airbnb_listing, wiki_history, headout_links] = await Promise.all([
         query('SELECT * FROM images WHERE city_id = $1', [cityId]),

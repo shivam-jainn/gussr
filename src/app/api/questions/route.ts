@@ -3,38 +3,41 @@ import { NextRequest, NextResponse } from "next/server";
 import { encryptCity } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
-    console.log(req)
-    const userId = req.headers.get('userId');
+    try {
+        const result = await getQuestion();
 
-    if (!userId) {
-        return NextResponse.json({ message: "User ID is required" }, { status: 400 });
+        if (!result) {
+            return NextResponse.json({ message: "No questions found" }, { status: 404 });
+        }
+
+        const { city, clues, options } = result;
+
+        if (!city) {
+            return NextResponse.json({ message: "Invalid question data" }, { status: 500 });
+        }
+
+        const encryptedCity = encryptCity(city.id);
+
+        return NextResponse.json({
+            encryptedCity,
+            clues,
+            options
+        }, { status: 200 });
+    } catch (error) {
+        console.error('Error in GET /api/questions:', error);
+        return NextResponse.json(
+            { message: "Internal server error" }, 
+            { status: 500 }
+        );
     }
-
-    const result = await getQuestion();
-
-    if (!result) {
-        return NextResponse.json({ message: "No questions found" }, { status: 404 });
-    }
-
-    const { city, clues, options } = result;
-
-    const encryptedCity = city && userId ? encryptCity(city.id, userId) : null;
-    if (!encryptedCity) {
-        return NextResponse.json({ message: "Failed to encrypt city" }, { status: 500 });
-    }
-    return NextResponse.json({
-        encryptedCity,
-        clues,
-        options
-    }, { status: 200 });
 }
 
 export async function POST(req: NextRequest) {
-    const userId = req.headers.get('userId');
+    // const userId = req.headers.get('userId');
 
-    if (!userId) {
-        return NextResponse.json({ message: "User ID is required" }, { status: 400 });
-    }
+    // if (!userId) {
+    //     return NextResponse.json({ message: "User ID is required" }, { status: 400 });
+    // }
 
     const body = await req.json();
     const cityId = body.cityId;
