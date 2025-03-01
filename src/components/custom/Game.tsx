@@ -112,6 +112,8 @@ export default function Game() {
   const [cityInfo, setCityInfo] = useState<CityInfo | null>(null);
   const [selectedCity, setSelectedCity] = useState<string>("");
   const [imageIds, setImageIds] = useState<string[]>([]);
+  const [correctCityId, setCorrectCityId] = useState<number | null>(null);
+  const [selectedOptionId, setSelectedOptionId] = useState<number | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -150,14 +152,17 @@ export default function Game() {
 
   const handleAnswer = async (optionId: number, cityName: string) => {
     try {
-      const correctCityId = decryptCity(response.encryptedCity);
+      const decryptedCityId = decryptCity(response.encryptedCity);
+      setSelectedOptionId(optionId);
       
-      if (correctCityId === null) {
+      if (decryptedCityId === null) {
         console.error('Decryption failed');
         return;
       }
       
-      if (correctCityId === optionId) {
+      setCorrectCityId(decryptedCityId);
+      
+      if (decryptedCityId === optionId) {
         setResult('correct');
         setSelectedCity(cityName);
         triggerConfetti();
@@ -169,7 +174,22 @@ export default function Game() {
         const data = await res.json();
         setCityInfo(data);
       } else {
+        console.log("Incorrect answer. Correct city ID:", decryptedCityId, "Selected city ID:", optionId);
         setResult('wrong');
+        // Still need to fetch the correct city info for display
+        const res = await fetch('/api/questions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cityId: decryptedCityId })
+        });
+        const data = await res.json();
+        setCityInfo(data);
+        
+        // Set the name of the correct city
+        const correctCity = response.options.find(option => option.id === decryptedCityId);
+        if (correctCity) {
+          setSelectedCity(correctCity.name);
+        }
       }
     } catch (error) {
       console.error('Error in answer handling:', error);
@@ -229,10 +249,7 @@ export default function Game() {
                   onClick={() => handleAnswer(option.id, option.name)}
                   disabled={result !== null}
                   className={cn(
-                    "w-full h-16 text-lg font-medium border-[1px] text-gray-800 bg-white hover:bg-gray-50 hover:border-gray-400 transition-all",
-                    result === 'correct' && option.id === decryptCity(response.encryptedCity) && "bg-green-500/20 border-green-500",
-                    result === 'wrong' && option.id === decryptCity(response.encryptedCity) && "bg-green-500/20 border-green-500",
-                    result === 'wrong' && option.id !== decryptCity(response.encryptedCity) && "opacity-50"
+                    "w-full h-16 text-lg font-medium border-[1px] text-gray-800 bg-white hover:bg-gray-50 hover:border-gray-400 transition-all"
                   )}
                 >
                   {option.name}
@@ -261,14 +278,18 @@ export default function Game() {
               >
                 {/* <BiConfetti className="text-2xl text-green-500" /> */}
                 <h2 className="text-2xl font-bold text-gray-800">
-                  You correctly guessed {selectedCity}!
+                  {result === 'correct' ? (
+                    `You correctly guessed ${selectedCity}!`
+                  ) : (
+                    `Sorry, the correct answer was ${selectedCity}.`
+                  )}
                 </h2>
               </motion.div>
             </div>
 
             <div className="flex flex-col h-full md:flex-row gap-8">
               {/* Draggable Image Gallery - Left Side */}
-              <div className="md:w-1/2">
+              <div className="md:w-1/2 ">
                 <h3 className="text-xl font-semibold mb-4 text-gray-800 flex items-center gap-2">
                   <span>City Gallery</span>
                   <span className="text-sm font-normal text-gray-500">(drag to rearrange)</span>
@@ -392,6 +413,8 @@ export default function Game() {
               onClick={() => {
                 setResult(null);
                 setCityInfo(null);
+                setSelectedOptionId(null);
+                setCorrectCityId(null);
                 // Refresh the game
                 const fetchData = async () => {
                   try {
