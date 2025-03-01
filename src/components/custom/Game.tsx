@@ -27,7 +27,13 @@ import { CSS } from '@dnd-kit/utilities';
 // Icon imports
 import { FaWikipediaW, FaAirbnb } from 'react-icons/fa';
 import { FiExternalLink, FiInfo } from 'react-icons/fi';
+import LaughingCat from './LaughingCat';
+
 // import { BiConfetti } from 'react-icons/bi';
+
+import { useAtom } from 'jotai';
+import { scoreAtom } from '@/lib/scoreatom';
+import ScoreTracker from './ScoreTracker';
 
 interface CityImage {
   id: number;
@@ -114,6 +120,8 @@ export default function Game() {
   const [imageIds, setImageIds] = useState<string[]>([]);
   const [correctCityId, setCorrectCityId] = useState<number | null>(null);
   const [selectedOptionId, setSelectedOptionId] = useState<number | null>(null);
+  const [score, setScore] = useAtom(scoreAtom);
+  const [showLaughingCat, setShowLaughingCat] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -165,6 +173,7 @@ export default function Game() {
       if (decryptedCityId === optionId) {
         setResult('correct');
         setSelectedCity(cityName);
+        setScore(prev => prev + 1);
         triggerConfetti();
         const res = await fetch('/api/questions', {
           method: 'POST',
@@ -176,6 +185,8 @@ export default function Game() {
       } else {
         console.log("Incorrect answer. Correct city ID:", decryptedCityId, "Selected city ID:", optionId);
         setResult('wrong');
+        setShowLaughingCat(true);
+        setTimeout(() => setShowLaughingCat(false), 4000);
         // Still need to fetch the correct city info for display
         const res = await fetch('/api/questions', {
           method: 'POST',
@@ -216,6 +227,7 @@ export default function Game() {
     <div className="flex flex-col items-center gap-6 p-4 max-w-7xl mx-auto">
       <AnimatePresence>
         {!result && (
+
           <motion.div 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -237,6 +249,8 @@ export default function Game() {
             </div>
           </motion.div>
         )}
+              {showLaughingCat && <LaughingCat />}
+
       </AnimatePresence>
 
       <Card className="w-full max-w-6xl p-6 bg-white shadow-md rounded-xl">
