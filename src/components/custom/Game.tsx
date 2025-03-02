@@ -1,8 +1,9 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { Card } from '../ui/card';
+import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
+import { Skeleton } from '../ui/skeleton';
 import { decryptCity } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import confetti from 'canvas-confetti';
@@ -95,6 +96,24 @@ const SortableImage = ({ id, url }: { id: string, url: string }) => {
     transition
   };
 
+  if (!url) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        {...listeners}
+        className="relative group cursor-move hover:scale-105 transition-transform"
+      >
+        <motion.div>
+          <Skeleton className="w-full h-48 rounded-lg shadow-md border border-white" />
+        </motion.div>
+      </div>
+    );
+  }
+
+  const [imageLoaded, setImageLoaded] = useState(false);
+
   return (
     <div
       ref={setNodeRef}
@@ -103,13 +122,20 @@ const SortableImage = ({ id, url }: { id: string, url: string }) => {
       {...listeners}
       className="relative group cursor-move hover:scale-105 transition-transform"
     >
-      <motion.div>
+      <motion.div className="relative">
+        {!imageLoaded && (
+          <Skeleton className="absolute inset-0 w-full h-48 rounded-lg shadow-md border border-white" />
+        )}
         <Image
           src={url}
           alt="City view"
           width={400}
           height={192}
-          className="w-full h-48 object-cover rounded-lg shadow-md border border-white"
+          className={cn(
+            "w-full h-48 object-cover rounded-lg shadow-md border border-white",
+            !imageLoaded && "opacity-0"
+          )}
+          onLoadingComplete={() => setImageLoaded(true)}
         />
       </motion.div>
     </div>
@@ -117,6 +143,9 @@ const SortableImage = ({ id, url }: { id: string, url: string }) => {
 };
 
 export default function Game() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [isResultLoading, setIsResultLoading] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const [response, setResponse] = useState<GameResponse>({
     clues: [],
     options: [],
@@ -163,7 +192,7 @@ export default function Game() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-
+        setIsLoading(true);
         if (!gameSession) {
             const newSession = nanoid(10);
             setGameSession(newSession);
@@ -173,8 +202,10 @@ export default function Game() {
         if (!res.ok) throw new Error('Failed to fetch question');
         const data = await res.json();
         setResponse(data);
+        setIsLoading(false);
       } catch (error) {
         console.error('Error:', error);
+        setIsLoading(false);
       }
     }
     fetchData();
@@ -196,6 +227,7 @@ export default function Game() {
 
   const handleAnswer = async (optionId: number, cityName: string) => {
     try {
+      setIsResultLoading(true);
       const decryptedCityId = decryptCity(response.encryptedCity);
       setSelectedOptionId(optionId);
       
@@ -278,8 +310,10 @@ export default function Game() {
           setSelectedCity(correctCity.name);
         }
       }
+      setIsResultLoading(false);
     } catch (error) {
       console.error('Error in answer handling:', error);
+      setIsResultLoading(false);
     }
   };
 
@@ -299,24 +333,89 @@ export default function Game() {
     return cityInfo?.images.find(img => img.id.toString() === id);
   };
 
-  return (
-    
+  const ResultSkeleton = () => (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="flex flex-col gap-6"
+    >
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-8 w-64" />
+      </div>
+      <div className="flex flex-col h-full md:flex-row gap-8">
+        <div className="md:w-1/2">
+          <Skeleton className="h-8 w-48 mb-4" />
+          <div className="grid grid-cols-2 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-48 w-full" />
+            ))}
+          </div>
+        </div>
+        <div className="md:w-1/2 space-y-6">
+          <div className="bg-gray-50 rounded-xl p-4 shadow-sm">
+            <Skeleton className="h-8 w-32 mb-4" />
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-4 w-full" />
+              ))}
+            </div>
+          </div>
+          <div className="bg-gray-50 rounded-xl p-4 shadow-sm">
+            <Skeleton className="h-8 w-48 mb-4" />
+            <div className="grid grid-cols-2 gap-3">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-24 w-full" />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+
+  const LoadingSkeleton = () => (
     <div className="flex flex-col items-center gap-6 p-4 max-w-7xl mx-auto">
-    {showUsernamePrompt ? (
-      <UsernamePrompt
-        challengerName={challengerName || undefined}
-        targetScore={targetScore || undefined}
-        onSubmit={() => setShowUsernamePrompt(false)}
-      />
-    ) : null}
-    <div className="w-full flex justify-between items-center">
-      <ScoreTracker />
-      {gameSession && (
-        <ShareButton 
-          score={score}
-        />
-      )}
+      <Card className="w-full max-w-6xl p-6 bg-white shadow-md rounded-xl">
+        <CardContent>
+          <div className="space-y-4">
+            <Skeleton className="h-8 w-3/4 mx-auto" />
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-6 w-full" />
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-4 mt-6">
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
+  );
+
+  if (isLoading) {
+    return <LoadingSkeleton />;
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-6 p-4 max-w-7xl mx-auto">
+      {showUsernamePrompt ? (
+        <UsernamePrompt
+          challengerName={challengerName || undefined}
+          targetScore={targetScore || undefined}
+          onSubmit={() => setShowUsernamePrompt(false)}
+        />
+      ) : null}
+      <div className="w-full flex justify-between items-center">
+        <ScoreTracker />
+        {gameSession && (
+          <ShareButton 
+            score={score}
+          />
+        )}
+      </div>
       <AnimatePresence>
         {!result && (
           <motion.div 
@@ -360,19 +459,29 @@ export default function Game() {
                   {option.name}
                 </Button>
                 <div className="absolute opacity-0 group-hover:opacity-100 transition-opacity duration-200 -top-32 left-1/2 -translate-x-1/2 z-10">
-                  <Image 
-                    src={option.image_url} 
-                    alt={option.name}
-                    width={192}
-                    height={128}
-                    className="w-48 h-32 object-cover rounded-lg shadow-lg border border-white"
-                  />
+                  <div className="relative">
+                    {!imageLoaded && (
+                      <Skeleton className="absolute inset-0 w-48 h-32 rounded-lg shadow-lg border border-white" />
+                    )}
+                    <Image 
+                      src={option.image_url || "/skyclear.jpg"} 
+                      alt={option.name || "City option"}
+                      width={192}
+                      height={128}
+                      className={cn(
+                        "w-48 h-32 object-cover rounded-lg shadow-lg border border-white",
+                        !imageLoaded && "opacity-0"
+                      )}
+                      onLoadingComplete={() => setImageLoaded(true)}
+                    />
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <motion.div 
+          isResultLoading ? <ResultSkeleton /> : (
+            <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="flex flex-col gap-6"
@@ -566,6 +675,7 @@ export default function Game() {
               </Button>
             </div>
           </motion.div>
+          )
         )}
       </Card>
     </div>
