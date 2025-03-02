@@ -127,3 +127,25 @@
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes float {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  25% {
+    transform: translate(50px, -20px) rotate(5deg);
+  }
+  50% {
+    transform: translate(100px, 0) rotate(0deg);
+  }
+  75% {
+    transform: translate(50px, 20px) rotate(-5deg);
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+}
+
+.animate-float {
+  animation: float 15s infinite ease-in-out;
+}
