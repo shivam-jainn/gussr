@@ -96,6 +96,9 @@ const SortableImage = ({ id, url }: { id: string, url: string }) => {
     transition
   };
 
+  // Move the useState hook outside of the conditional
+  const [imageLoaded, setImageLoaded] = useState(false);
+
   if (!url) {
     return (
       <div
@@ -111,8 +114,6 @@ const SortableImage = ({ id, url }: { id: string, url: string }) => {
       </div>
     );
   }
-
-  const [imageLoaded, setImageLoaded] = useState(false);
 
   return (
     <div
@@ -141,7 +142,6 @@ const SortableImage = ({ id, url }: { id: string, url: string }) => {
     </div>
   );
 };
-
 export default function Game() {
   const [isLoading, setIsLoading] = useState(true);
   const [isResultLoading, setIsResultLoading] = useState(false);
