@@ -1,17 +1,13 @@
 import { query } from "./db";
 
 export async function getQuestion() {
-    // Get total count of cities
-    const countResult = await query('SELECT COUNT(*) FROM cities');
-    const totalCities = parseInt(countResult.rows[0].count);
-    
-    // Generate random ID within range
-    const cityId = Math.floor(Math.random() * totalCities) + 1;
-    
-    // Get random city
-    const cityResult = await query('SELECT * FROM cities WHERE id = $1', [cityId]);
-
-    const imageResult = await query('SELECT * FROM images WHERE city_id = $1', [cityId]);
+    // Get a random city with its image
+    const cityResult = await query(
+        'SELECT c.*, i.url as image_url FROM cities c ' +
+        'LEFT JOIN images i ON i.city_id = c.id ' +
+        'ORDER BY RANDOM() ' +
+        'LIMIT 1'
+    );
 
     // If no city found, return null
     if (cityResult.rows.length === 0) {
@@ -19,28 +15,29 @@ export async function getQuestion() {
     }
 
     const city = cityResult.rows[0];
+    const imageResult = await query('SELECT * FROM images WHERE city_id = $1', [city.id]);
     const cluesResult = await query('SELECT * FROM clues WHERE city_id = $1', [city.id]);
 
+    // Get random cities for options, excluding the selected city
     const randomCitiesResult = await query(
-        'SELECT DISTINCT ON (c.id) c.*, i.url as image_url FROM cities c ' +
+        'SELECT c.*, i.url as image_url FROM cities c ' +
         'LEFT JOIN images i ON i.city_id = c.id ' +
         'WHERE c.id != $1 ' +
-        'ORDER BY c.id, RANDOM() ' +
+        'ORDER BY RANDOM() ' +
         'LIMIT 3',
         [city.id]
     );
-    const randomCities = randomCitiesResult.rows;
 
-    // Get the selected city with its image
-    const cityWithImageResult = await query(
-        'SELECT c.*, i.url as image_url FROM cities c ' +
-        'LEFT JOIN images i ON i.city_id = c.id ' +
-        'WHERE c.id = $1 ' +
-        'LIMIT 1',
-        [city.id]
-    );
-
-    const options = [cityWithImageResult.rows[0], ...randomCities];
+    const options = [city, ...randomCitiesResult.rows];
+    // Implement a more robust shuffling using crypto for better randomness
+    const shuffleArray = (array: any[]) => {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(crypto.getRandomValues(new Uint32Array(1))[0] / (0xffffffff + 1) * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    };
+    shuffleArray(options);
     return {
         city,
         clues: cluesResult.rows,

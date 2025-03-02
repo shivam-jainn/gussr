@@ -319,8 +319,8 @@ export default function Game() {
     </div>
       <AnimatePresence>
         {!result && (
-
           <motion.div 
+            key="guess-city-prompt"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             className="text-center space-y-2 bg-white/90 p-6 rounded-xl shadow-sm"
@@ -341,8 +341,7 @@ export default function Game() {
             </div>
           </motion.div>
         )}
-              {showLaughingCat && <LaughingCat />}
-
+        {showLaughingCat && <LaughingCat key="laughing-cat" />}
       </AnimatePresence>
 
       <Card className="w-full max-w-6xl p-6 bg-white shadow-md rounded-xl">
